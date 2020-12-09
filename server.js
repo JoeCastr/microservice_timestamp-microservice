@@ -13,6 +13,31 @@ app.use(cors({optionsSuccessStatus: 200}));  // some legacy browsers choke on 20
 // http://expressjs.com/en/starter/static-files.html
 app.use(express.static('public'));
 
+// I need a function to validate the date
+function isHumanDate(entry) {
+  let isTextNumber = isNaN(Number(entry))
+  let isValidTextDate = typeof Date.parse(entry) === 'number'
+  return (isTextNumber && isValidTextDate)
+}
+
+  //A 4 digit number is a valid ISO-8601 for the beginning of that year
+  //5 digits or more must be a unix time
+
+function isInvalidStringDate(entry) {
+  let isNotUnix = parseInt(entry).length < 5
+  let entryDate = new Date(Number(entry));
+  return (isNotUnix && Date.parse(entryDate) === 0);
+}
+
+function isUnixTime(entry) {
+  return (typeof entry === 'number' && entry > 0);
+}
+
+function isUndefined(entry) {
+  return (!entry)
+}
+
+
 // http://expressjs.com/en/starter/basic-routing.html
 app.get("/", function (req, res) {
   res.sendFile(__dirname + '/views/index.html');
@@ -25,45 +50,36 @@ app.get("/api/hello", function (req, res) {
 });
 
 app.get("/api/timestamp/:date?", (req, res) => {
-  // my date will be entered by the user like so: 1993-10-12
+  let date = req.params.date;
 
-  // if the input date string is invalid
-  // // api returns an object {error : "Invalid Date"}
-
-  // an empty date parameter should return the current time in a JSON object
-  // with a "unix" key
-  // with a "utc" key
-  let date;
-  let validity = req.params.date;
-  let unixTimestamp;
-  let dateObj;
-  let utcString;
-
-  if (validity && validity.length > 0) {                      // is date a string with a length greater than 0 ? If it's empty, theres no length
-    date = req.params.date;
-    validity = new Date(date);
-
-    if (Date.parse(validity)) {                               // checks if 'date' is a valid date
-      unixTimestamp = new Date(date);
-      dateObj = new Date(unixTimestamp * 1000);
-      utcString = dateObj.toUTCString()
-
-      res.json({
-        "unix": unixTimestamp,
-        "utc": utcString
-      });
-    } else {                                             // if date is a string but NOT a valid date, then return this instead
-      res.json({ error: "Invalid Date" });
-    }
-  } else {                  // here I handle the empty string, so I need to return the current time. The reutrn object requires a 'unix' and 'utc' key
-    unixTimestamp = new Date().getTime() / 1000;
-    dateObj = new Date(unixTimestamp * 1000);
-    utcString = dateObj.toUTCString();
+  if (isUndefined(date)) {
+    let unix = Date.now();
+    let utc = (new Date(unix)).toUTCString();
 
     res.json({
-      "unix": unixTimestamp,
-      "utc": utcString
-    });
+      "unix": unix,
+      "utc": utc
+    })
+  } else if (isInvalidStringDate(date)) {
+    res.json({
+      error: "Invalid Date"
+    })
+  } else if (isUnixTime(Number(date))) {
+    let unixDateDateObj = new Date(Number(date));
+    let unixDateDateObjToUnix = unixDateDateObj.getTime();
+
+    res.json({
+      "unix": unixDateDateObjToUnix,
+      "utc": unixDateDateObj.toUTCString()
+    })
+  } else if (isHumanDate(date)) {
+    let unix = Date.parse(date)
+    let utc = (new Date(date)).toUTCString();
+
+    res.json({
+      "unix": unix,
+      "utc": utc
+    })
   }
 })
 
